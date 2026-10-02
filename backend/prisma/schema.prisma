@@ -1,0 +1,449 @@
+// Açougue do Vandinho — schema.
+// Phase 1 runs on SQLite. To move to Supabase (Postgres), change `provider`
+// to "postgresql", swap the driver adapter in PrismaService and create a new
+// migration history. Money is always stored in cents (Int).
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ---------------------------------------------------------------- identity
+
+enum Role {
+  CUSTOMER
+  COURIER
+  EMPLOYEE // store staff: orders (view + pickup hand-over) and catalog
+  ADMIN
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  googleId        String?   @unique
+  firstName       String
+  lastName        String    @default("")
+  avatarUrl       String?
+  phone           String?   @unique // digits only, with country code: 5511987654321
+  phoneVerifiedAt DateTime?
+  role            Role      @default(CUSTOMER)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  addresses          Address[]
+  orders             Order[]
+  favorites          Favorite[]
+  reviews            Review[]
+  phoneVerifications PhoneVerification[]
+  deliveries         Delivery[]          @relation("CourierDeliveries")
+}
+
+model PhoneVerification {
+  id        String   @id @default(cuid())
+  userId    String
+  phone     String
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------- customers
+
+model Address {
+  id           String   @id @default(cuid())
+  userId       String
+  label        String
+  zipCode      String
+  street       String
+  number       String
+  complement   String?
+  neighborhood String
+  city         String
+  state        String
+  reference    String?
+  latitude     Float?
+  longitude    Float?
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------- catalog
+
+enum ProductUnit {
+  KG
+  UNIT
+  PACK
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  position  Int       @default(0)
+  createdAt DateTime  @default(now())
+  products  Product[]
+}
+
+model Product {
+  id               String      @id @default(cuid())
+  name             String
+  slug             String      @unique
+  categoryId       String
+  unit             ProductUnit @default(KG)
+  priceCents       Int
+  shortDescription String      @default("")
+  description      String      @default("") // markdown
+  published        Boolean     @default(true)
+  available        Boolean     @default(true)
+  isNew            Boolean     @default(false)
+  newUntil         DateTime?
+  cutOptions       String      @default("[]") // JSON string[]
+  minQuantity      Float       @default(1)
+  quantityStep     Float       @default(1)
+  ratingAvg        Float       @default(0)
+  ratingCount      Int         @default(0)
+  soldCount        Float       @default(0)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  category  Category       @relation(fields: [categoryId], references: [id])
+  media     ProductMedia[]
+  offers    OfferProduct[]
+  favorites Favorite[]
+  reviews   Review[]
+
+  @@index([categoryId])
+}
+
+model ProductMedia {
+  id        String    @id @default(cuid())
+  productId String
+  type      MediaType @default(IMAGE)
+  url       String
+  alt       String    @default("")
+  position  Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+enum DiscountType {
+  PERCENT
+  AMOUNT
+  FIXED_PRICE
+}
+
+model Offer {
+  id           String       @id @default(cuid())
+  name         String
+  discountType DiscountType
+  value        Int // percent (0-100) or cents
+  startsAt     DateTime
+  endsAt       DateTime?
+  active       Boolean      @default(true)
+  showBadge    Boolean      @default(true)
+  featured     Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  products OfferProduct[]
+}
+
+model OfferProduct {
+  offerId   String
+  productId String
+
+  offer   Offer   @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([offerId, productId])
+}
+
+// ---------------------------------------------------------------- engagement
+
+model Favorite {
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([userId, productId])
+}
+
+enum ReviewStatus {
+  PUBLISHED
+  HIDDEN
+}
+
+model Review {
+  id        String       @id @default(cuid())
+  productId String
+  userId    String
+  rating    Int
+  comment   String?
+  tags      String       @default("[]") // JSON string[]
+  status    ReviewStatus @default(PUBLISHED)
+  reply     String?
+  repliedAt DateTime?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, userId])
+}
+
+// ---------------------------------------------------------------- ordering
+
+enum OrderStatus {
+  CART
+  PAID
+  CANCELLED
+}
+
+enum Fulfillment {
+  DELIVERY
+  PICKUP
+}
+
+enum PaymentMethod {
+  PIX
+  CREDIT_CARD
+  DEBIT_CARD
+}
+
+model Order {
+  id               String         @id @default(cuid())
+  code             String         @unique
+  userId           String
+  status           OrderStatus    @default(CART)
+  fulfillment      Fulfillment    @default(DELIVERY)
+  addressId        String?
+  addressSnapshot  String? // JSON of the address used at checkout
+  paymentMethod    PaymentMethod?
+  subtotalCents    Int            @default(0)
+  savingsCents     Int            @default(0)
+  deliveryFeeCents Int            @default(0)
+  totalCents       Int            @default(0)
+  checkoutAt       DateTime?
+  paidAt           DateTime?
+  cancelledAt      DateTime?
+  cancelReason     String?
+  pickedUpAt       DateTime? // pickup orders: handed to the customer at the counter (no cancel after this)
+  pickedUpById     String? // staff member who confirmed the hand-over
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  user     User        @relation(fields: [userId], references: [id])
+  items    OrderItem[]
+  payments Payment[]
+  delivery Delivery?
+
+  @@index([userId, status])
+  @@index([status, paidAt])
+}
+
+model OrderItem {
+  id             String      @id @default(cuid())
+  orderId        String
+  productId      String
+  productName    String
+  unit           ProductUnit
+  quantity       Float
+  listPriceCents Int
+  unitPriceCents Int
+  totalCents     Int
+  cutOption      String?
+  notes          String?
+  createdAt      DateTime    @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Sequence {
+  name  String @id
+  value Int
+}
+
+// ---------------------------------------------------------------- payments
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+enum RefundStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  orderId           String
+  provider          String // stripe | fake
+  providerPaymentId String        @unique
+  method            PaymentMethod
+  status            PaymentStatus @default(PENDING)
+  amountCents       Int
+  clientSecret      String?
+  pixCode           String?
+  pixQrImageUrl     String?
+  pixExpiresAt      DateTime?
+  succeededAt       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  refunds Refund[]
+
+  @@index([orderId])
+}
+
+model Refund {
+  id               String       @id @default(cuid())
+  paymentId        String
+  orderId          String
+  providerRefundId String?      @unique
+  amountCents      Int
+  status           RefundStatus @default(PENDING)
+  createdAt        DateTime     @default(now())
+  completedAt      DateTime?
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+// ---------------------------------------------------------------- delivery
+
+enum DeliveryStatus {
+  AWAITING
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+  NOT_DELIVERED
+}
+
+model Delivery {
+  id              String         @id @default(cuid())
+  orderId         String         @unique
+  orderCode       String
+  status          DeliveryStatus @default(AWAITING)
+  courierId       String?
+  feeCents        Int
+  customerName    String
+  customerPhone   String?
+  addressSnapshot String // JSON
+  latitude        Float?
+  longitude       Float?
+  itemsSummary    String // JSON [{name, quantity, unit}]
+  failureReason   String?
+  failureNotes    String?
+  startedAt       DateTime?
+  deliveredAt     DateTime?
+  failedAt        DateTime?
+  cancelledAt     DateTime?
+  courierPaidAt   DateTime? // admin settled this delivery's fee with the courier (irreversible)
+  courierPaidById String? // admin who recorded the payout
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  courier User? @relation("CourierDeliveries", fields: [courierId], references: [id])
+
+  @@index([status])
+  @@index([courierId, status])
+  @@index([courierId, deliveredAt])
+}
+
+// ---------------------------------------------------------------- store & support
+
+model StoreSettings {
+  id                   Int      @id @default(1)
+  name                 String   @default("Açougue do Vandinho")
+  cnpj                 String   @default("")
+  whatsapp             String   @default("")
+  addressLine          String   @default("")
+  latitude             Float?
+  longitude            Float?
+  hours                String   @default("[]") // JSON [{label, value}]
+  about                String   @default("")
+  pixExpirationMinutes Int      @default(30)
+  assistantEnabled     Boolean  @default(true)
+  assistantPrompt      String   @default("")
+  notifications        String   @default("{}") // JSON { [template]: boolean }
+  updatedAt            DateTime @updatedAt
+}
+
+model DeliveryZone {
+  id             String   @id @default(cuid())
+  neighborhood   String
+  normalizedName String   @unique
+  feeCents       Int
+  etaMinutes     Int      @default(60)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+}
+
+model Attendant {
+  id        String   @id @default(cuid())
+  fullName  String
+  phone     String
+  active    Boolean  @default(true)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------- messaging
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+model WhatsAppMessage {
+  id        String           @id @default(cuid())
+  phone     String
+  direction MessageDirection
+  kind      String           @default("text") // text | location
+  body      String
+  meta      String? // JSON
+  provider  String // log | zapi
+  status    String           @default("sent") // sent | failed | received
+  error     String?
+  createdAt DateTime         @default(now())
+
+  @@index([phone, createdAt])
+}
