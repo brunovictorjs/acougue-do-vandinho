@@ -64,6 +64,11 @@ export default function AdminDeliveriesPage() {
                         {d.addressLine} · {d.neighborhood}
                       </span>
                       {d.courierName && <span className="text-xs">Entregador: {d.courierName}</span>}
+                      {d.deliveryCode && (status === "AWAITING" || status === "IN_TRANSIT" || status === "NOT_DELIVERED") && (
+                        <span className="text-xs text-muted-foreground">
+                          Código de entrega: <span className="font-mono tracking-wider text-gold-text">{d.deliveryCode}</span>
+                        </span>
+                      )}
                       <span className="text-xs text-muted-foreground">
                         {status === "IN_TRANSIT" && `Saiu ${dateTime(d.startedAt)}`}
                         {status === "DELIVERED" && `Entregue ${dateTime(d.deliveredAt)}`}

@@ -26,7 +26,7 @@ describe('Delivery', () => {
     expect(d.status).toBe('IN_TRANSIT');
     expect(d.isVisibleTo('c2')).toBe(false);
     expect(d.isVisibleTo('c1')).toBe(true);
-    d.complete('c1');
+    d.complete('c1', d.snapshot.deliveryCode);
     expect(d.status).toBe('DELIVERED');
     expect(d.isVisibleTo('c1')).toBe(false);
     expect(d.pullEvents().map((e) => e.name)).toEqual(['delivery.started', 'delivery.completed']);
@@ -35,7 +35,7 @@ describe('Delivery', () => {
   it('only the assigned courier can finish it', () => {
     const d = fresh();
     d.start(carlos);
-    expect(() => d.complete('c2')).toThrow(/outro entregador/);
+    expect(() => d.complete('c2', d.snapshot.deliveryCode)).toThrow(/outro entregador/);
   });
 
   it('cannot be picked twice', () => {
@@ -68,10 +68,55 @@ describe('Delivery', () => {
     const d = fresh();
     d.start(carlos);
     expect(() => d.markCourierPaid('c1')).toThrow(/não foi concluída/);
-    d.complete('c1');
+    d.complete('c1', d.snapshot.deliveryCode);
     expect(() => d.markCourierPaid('c2')).toThrow(/outro entregador/);
     d.markCourierPaid('c1');
     expect(d.snapshot.courierPaidAt).toBeInstanceOf(Date);
     expect(() => d.markCourierPaid('c1')).toThrow(/já foi paga/);
+  });
+
+  describe('delivery code', () => {
+    it('is six digits, generated per delivery and unrelated to the order code', () => {
+      const a = fresh();
+      const b = fresh();
+      expect(a.snapshot.deliveryCode).toMatch(/^\d{6}$/);
+      expect(a.snapshot.deliveryCode).not.toBe(a.snapshot.orderCode);
+      expect(a.snapshot.deliveryCode === b.snapshot.deliveryCode).toBe(false);
+    });
+
+    it('blocks the courier from completing without the right code', () => {
+      const d = fresh();
+      d.start(carlos);
+      const right = d.snapshot.deliveryCode;
+      const wrong = String((Number(right) + 1) % 1_000_000).padStart(6, '0');
+      expect(() => d.complete('c1', wrong)).toThrow(/incorreto/);
+      expect(() => d.complete('c1', '')).toThrow(/incorreto/);
+      expect(d.status).toBe('IN_TRANSIT');
+      d.complete('c1', right);
+      expect(d.status).toBe('DELIVERED');
+    });
+
+    it('accepts the code as the customer reads it out, with spaces or dashes', () => {
+      const d = fresh();
+      d.start(carlos);
+      const c = d.snapshot.deliveryCode;
+      d.complete('c1', ` ${c.slice(0, 3)}-${c.slice(3)} `);
+      expect(d.status).toBe('DELIVERED');
+    });
+
+    it('tells the customer the code when the delivery starts', () => {
+      const d = fresh();
+      d.start(carlos);
+      expect(d.pullEvents()[0]).toMatchObject({ name: 'delivery.started', deliveryCode: d.snapshot.deliveryCode });
+    });
+
+    it('keeps the same code after a failed attempt is rescheduled', () => {
+      const d = fresh();
+      const code = d.snapshot.deliveryCode;
+      d.start(carlos);
+      d.fail('c1', 'Cliente ausente', null);
+      d.reschedule();
+      expect(d.snapshot.deliveryCode).toBe(code);
+    });
   });
 });

@@ -90,6 +90,15 @@ export default function OrderDetailPage() {
                     <span className="text-xs text-muted-foreground">Mostre este código no balcão.</span>
                   </div>
                 )}
+                {order.delivery?.deliveryCode && (order.delivery.status === "AWAITING" || order.delivery.status === "IN_TRANSIT" || order.delivery.status === "NOT_DELIVERED") && (
+                  <div className="flex flex-col gap-2 rounded-lg bg-black p-4 text-center">
+                    <span className="label-caps text-muted-foreground">Código de entrega</span>
+                    <span className="font-mono text-3xl tracking-widest text-gold-text">{order.delivery.deliveryCode}</span>
+                    <span className="text-xs text-muted-foreground">
+                      Informe este código ao entregador para receber o pedido. Sem ele a entrega não é concluída — não compartilhe com mais ninguém.
+                    </span>
+                  </div>
+                )}
                 {order.delivery?.status === "NOT_DELIVERED" && (
                   <Alert variant="destructive">
                     <TriangleAlertIcon />

@@ -110,6 +110,8 @@ interface DeliveryEventBase {
 
 export interface DeliveryStartedEvent extends DeliveryEventBase {
   name: typeof Events.DeliveryStarted;
+  /** Reminded to the customer on WhatsApp — they release the order with it. */
+  deliveryCode: string;
 }
 export interface DeliveryCompletedEvent extends DeliveryEventBase {
   name: typeof Events.DeliveryCompleted;

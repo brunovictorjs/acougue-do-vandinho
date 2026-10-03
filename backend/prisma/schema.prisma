@@ -368,6 +368,7 @@ model Delivery {
   latitude        Float?
   longitude       Float?
   itemsSummary    String // JSON [{name, quantity, unit}]
+  deliveryCode    String         @default("") // 6 digits the customer shows to the courier to release the order
   failureReason   String?
   failureNotes    String?
   startedAt       DateTime?

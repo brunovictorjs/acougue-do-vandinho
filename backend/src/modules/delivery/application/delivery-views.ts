@@ -1,7 +1,12 @@
 import type { Delivery } from '../domain/delivery.js';
 import { haversine } from '../infrastructure/route-planner.js';
 
-export function deliveryView(d: Delivery, store?: { latitude: number | null; longitude: number | null }) {
+/**
+ * `includeCode` is opt-in on purpose: the delivery code is the customer's proof
+ * of identity, so it may only reach the customer and the store — never the
+ * courier's screens.
+ */
+export function deliveryView(d: Delivery, store?: { latitude: number | null; longitude: number | null }, opts: { includeCode?: boolean } = {}) {
   const s = d.snapshot;
   const a = s.address;
   const distanceMeters =
@@ -27,6 +32,7 @@ export function deliveryView(d: Delivery, store?: { latitude: number | null; lon
     distanceMeters,
     items: s.items,
     itemCount: s.items.length,
+    deliveryCode: opts.includeCode ? s.deliveryCode : null,
     failureReason: s.failureReason,
     failureNotes: s.failureNotes,
     startedAt: s.startedAt,

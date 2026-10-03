@@ -197,6 +197,8 @@ export interface DeliveryView {
   distanceMeters: number | null
   items: Array<{ name: string; quantity: number; unit: Unit }>
   itemCount: number
+  /** Only sent to the customer and the store — always null on courier screens. */
+  deliveryCode: string | null
   failureReason: string | null
   failureNotes: string | null
   startedAt: string | null

@@ -7,6 +7,7 @@
 import 'dotenv/config';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import { PrismaClient } from '../src/generated/prisma/client.js';
+import { generateDeliveryCode } from '../src/modules/delivery/domain/delivery.js';
 
 const prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL ?? 'file:./dev.db' }) });
 
@@ -260,6 +261,7 @@ async function main() {
           latitude: address.latitude,
           longitude: address.longitude,
           itemsSummary: JSON.stringify(items.map((i) => ({ name: i.productName, quantity: i.quantity, unit: i.unit }))),
+          deliveryCode: generateDeliveryCode(),
           startedAt: status === 'DELIVERED' ? new Date(at.getTime() + 1_800_000) : null,
           deliveredAt: status === 'DELIVERED' ? new Date(at.getTime() + 3_600_000) : null,
           cancelledAt: status === 'CANCELLED' ? order.cancelledAt : null,

@@ -82,7 +82,7 @@ export class OrderNotificationsHandler {
 
   @OnEvent(Events.DeliveryStarted)
   async started(e: DeliveryStartedEvent) {
-    await this.notify('started', e.customerUserId, Templates.started(e.orderCode, e.courierName), { orderId: e.orderId, orderCode: e.orderCode });
+    await this.notify('started', e.customerUserId, Templates.started(e.orderCode, e.courierName, e.deliveryCode), { orderId: e.orderId, orderCode: e.orderCode });
   }
 
   @OnEvent(Events.DeliveryCompleted)

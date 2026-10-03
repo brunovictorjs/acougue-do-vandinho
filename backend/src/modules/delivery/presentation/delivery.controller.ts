@@ -7,6 +7,10 @@ import { UserDirectory } from '../../identity/application/user-directory.js';
 import { CourierPayoutsService } from '../application/courier-payouts.service.js';
 import { DeliveriesService } from '../application/deliveries.service.js';
 
+class DeliveredDto {
+  @IsString() @MaxLength(20) code!: string;
+}
+
 class FailDto {
   @IsString() @MaxLength(60) reason!: string;
   @IsOptional() @IsString() @MaxLength(300) notes?: string;
@@ -48,8 +52,8 @@ export class CourierController {
 
   @Post(':id/delivered')
   @HttpCode(200)
-  delivered(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.deliveries.complete(id, user.id);
+  delivered(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: DeliveredDto) {
+    return this.deliveries.complete(id, user.id, dto.code);
   }
 
   @Post(':id/not-delivered')

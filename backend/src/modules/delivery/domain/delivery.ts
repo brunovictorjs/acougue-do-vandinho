@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { AddressSnapshot, Events } from '../../../shared/application/integration-events.js';
 import { AggregateRoot } from '../../../shared/domain/aggregate-root.js';
 import { BusinessRuleError, ForbiddenError } from '../../../shared/domain/errors.js';
@@ -5,6 +6,20 @@ import { BusinessRuleError, ForbiddenError } from '../../../shared/domain/errors
 export type DeliveryStatus = 'AWAITING' | 'IN_TRANSIT' | 'DELIVERED' | 'CANCELLED' | 'NOT_DELIVERED';
 
 export const FAILURE_REASONS = ['Cliente ausente', 'Endereço não encontrado', 'Cliente recusou o pedido', 'Outro motivo'] as const;
+
+export const DELIVERY_CODE_LENGTH = 6;
+
+/**
+ * The code the customer shows to the courier to release the order. Six digits
+ * (1 in a million) so it cannot be guessed at the door, and unrelated to the
+ * order code — which the courier already sees.
+ */
+export function generateDeliveryCode() {
+  return String(randomInt(0, 10 ** DELIVERY_CODE_LENGTH)).padStart(DELIVERY_CODE_LENGTH, '0');
+}
+
+/** Digits only: the customer may read it out with spaces or dashes. */
+const normalizeCode = (code: string) => code.replace(/\D/g, '');
 
 export interface DeliveryProps {
   id: string;
@@ -21,6 +36,8 @@ export interface DeliveryProps {
   latitude: number | null;
   longitude: number | null;
   items: Array<{ name: string; quantity: number; unit: string }>;
+  /** Secret shared with the customer only — never exposed to the courier. */
+  deliveryCode: string;
   failureReason: string | null;
   failureNotes: string | null;
   startedAt: Date | null;
@@ -49,7 +66,7 @@ export class Delivery extends AggregateRoot {
   }
 
   static create(
-    input: Omit<DeliveryProps, 'id' | 'status' | 'courierId' | 'courierName' | 'failureReason' | 'failureNotes' | 'startedAt' | 'deliveredAt' | 'failedAt' | 'cancelledAt' | 'courierPaidAt' | 'createdAt'>,
+    input: Omit<DeliveryProps, 'id' | 'status' | 'courierId' | 'courierName' | 'deliveryCode' | 'failureReason' | 'failureNotes' | 'startedAt' | 'deliveredAt' | 'failedAt' | 'cancelledAt' | 'courierPaidAt' | 'createdAt'>,
   ) {
     return new Delivery({
       ...input,
@@ -57,6 +74,7 @@ export class Delivery extends AggregateRoot {
       status: 'AWAITING',
       courierId: null,
       courierName: null,
+      deliveryCode: generateDeliveryCode(),
       failureReason: null,
       failureNotes: null,
       startedAt: null,
@@ -103,12 +121,21 @@ export class Delivery extends AggregateRoot {
     this.props.courierId = courier.id;
     this.props.courierName = courier.name;
     this.props.startedAt = new Date();
-    this.raise({ name: Events.DeliveryStarted, ...this.base() });
+    this.raise({ name: Events.DeliveryStarted, ...this.base(), deliveryCode: this.props.deliveryCode });
   }
 
-  complete(courierId: string) {
+  /**
+   * Handing the order over. The courier must type the code the customer has, so
+   * a delivery cannot be closed from the couch nor handed to whoever claims the
+   * order at the door.
+   */
+  complete(courierId: string, code: string) {
     this.assertCourier(courierId);
     if (this.props.status !== 'IN_TRANSIT') throw new BusinessRuleError('Só entregas em andamento podem ser concluídas.');
+    if (!this.props.deliveryCode) throw new BusinessRuleError('Esta entrega está sem código. Fale com a loja antes de entregar.', 'delivery_code_missing');
+    if (normalizeCode(code) !== this.props.deliveryCode) {
+      throw new BusinessRuleError('Código de entrega incorreto. Confirme os 6 dígitos com o cliente.', 'delivery_code_invalid');
+    }
     this.props.status = 'DELIVERED';
     this.props.deliveredAt = new Date();
     this.raise({ name: Events.DeliveryCompleted, ...this.base() });

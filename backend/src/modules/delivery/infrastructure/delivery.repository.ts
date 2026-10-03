@@ -33,6 +33,7 @@ export class DeliveryRepository {
       latitude: r.latitude,
       longitude: r.longitude,
       items: parseJson(r.itemsSummary, []),
+      deliveryCode: r.deliveryCode,
       failureReason: r.failureReason,
       failureNotes: r.failureNotes,
       startedAt: r.startedAt,
@@ -75,6 +76,7 @@ export class DeliveryRepository {
         latitude: s.latitude,
         longitude: s.longitude,
         itemsSummary: JSON.stringify(s.items),
+        deliveryCode: s.deliveryCode,
       },
     });
   }

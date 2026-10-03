@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckIcon, ChevronLeftIcon, ClockIcon, MessageCircleIcon, NavigationIcon, PackageIcon, PhoneIcon, TriangleAlertIcon } from "lucide-react"
+import { CheckIcon, ChevronLeftIcon, ClockIcon, LockKeyholeIcon, MessageCircleIcon, NavigationIcon, PackageIcon, PhoneIcon, TriangleAlertIcon } from "lucide-react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import * as React from "react"
@@ -10,12 +10,13 @@ import { LazyMap, type MapPoint } from "@/components/maps/map"
 import { DeliveryStatusBadge } from "@/components/status-badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
-import { Field, FieldContent, FieldLabel, FieldTitle } from "@/components/ui/field"
+import { Field, FieldContent, FieldDescription, FieldError, FieldLabel, FieldTitle } from "@/components/ui/field"
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
-import { api, errorMessage } from "@/lib/api"
+import { api, ApiError, errorMessage } from "@/lib/api"
 import { distance, money, qty } from "@/lib/format"
 import type { DeliveryView } from "@/lib/types"
 
@@ -32,6 +33,9 @@ export default function CourierRoutePage() {
   const { data, mutate, error } = useSWR<Detail>(`/courier/deliveries/${id}`)
   const [busy, setBusy] = React.useState(false)
   const [failing, setFailing] = React.useState(false)
+  const [confirming, setConfirming] = React.useState(false)
+  const [code, setCode] = React.useState("")
+  const [codeError, setCodeError] = React.useState<string | null>(null)
   const [reason, setReason] = React.useState("")
   const [notes, setNotes] = React.useState("")
   const [done, setDone] = React.useState<"DELIVERED" | "NOT_DELIVERED" | null>(null)
@@ -65,13 +69,24 @@ export default function CourierRoutePage() {
       if (path === "start") await mutate()
       else {
         setFailing(false)
+        setConfirming(false)
         setDone(path === "delivered" ? "DELIVERED" : "NOT_DELIVERED")
       }
     } catch (e) {
-      toast.error(errorMessage(e))
+      // A wrong code stays in the drawer so the courier can ask the customer again.
+      if (e instanceof ApiError && (e.code === "delivery_code_invalid" || e.code === "delivery_code_missing")) {
+        setCodeError(e.message)
+        setCode("")
+      } else toast.error(errorMessage(e))
     } finally {
       setBusy(false)
     }
+  }
+
+  function openConfirm() {
+    setCode("")
+    setCodeError(null)
+    setConfirming(true)
   }
 
   if (done) {
@@ -147,6 +162,7 @@ export default function CourierRoutePage() {
               {d.itemCount} {d.itemCount === 1 ? "item" : "itens"} · já pago
             </span>
             <span className="text-muted-foreground">{d.items.map((i) => `${i.name} ${qty(i.quantity, i.unit)}`).join(", ")}</span>
+            {d.status === "IN_TRANSIT" && <span className="mt-1 text-gold-text">Peça o código de entrega de 6 dígitos ao cliente antes de passar o pedido.</span>}
           </div>
           <span className="font-semibold text-gold-text">Taxa {money(d.feeCents)}</span>
         </div>
@@ -160,8 +176,8 @@ export default function CourierRoutePage() {
         )}
         {d.status === "IN_TRANSIT" && (
           <>
-            <Button size="xl" className="h-14" disabled={busy} onClick={() => act("delivered")}>
-              {busy ? <Spinner data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" />}
+            <Button size="xl" className="h-14" disabled={busy} onClick={openConfirm}>
+              <CheckIcon data-icon="inline-start" />
               Marcar como entregue
             </Button>
             <Button variant="outline" size="xl" className="border-brand-gold" disabled={busy} onClick={() => setFailing(true)}>
@@ -171,6 +187,53 @@ export default function CourierRoutePage() {
         )}
       </section>
 
+      <Drawer open={confirming} onOpenChange={setConfirming}>
+        <DrawerContent>
+          <div className="mx-auto w-full max-w-lg">
+            <DrawerHeader className="text-left">
+              <DrawerTitle className="font-display text-3xl">Código de entrega</DrawerTitle>
+              <DrawerDescription>
+                Pergunte ao cliente os 6 dígitos que ele recebeu no WhatsApp. Só entregue o pedido depois que o código for aceito.
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="flex flex-col gap-4 px-4 py-5">
+              <Field data-invalid={codeError ? true : undefined} className="gap-3 text-center">
+                <InputOTP
+                  aria-label="Código de entrega"
+                  containerClassName="justify-center"
+                  maxLength={6}
+                  value={code}
+                  onChange={(v: string) => {
+                    setCode(v)
+                    setCodeError(null)
+                  }}
+                  onComplete={(v: string) => void act("delivered", { code: v })}
+                  disabled={busy}
+                  inputMode="numeric"
+                  autoFocus
+                >
+                  <InputOTPGroup>
+                    {[0, 1, 2, 3, 4, 5].map((i) => (
+                      <InputOTPSlot key={i} index={i} className="size-12 text-lg" aria-invalid={codeError ? true : undefined} />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
+                {codeError ? <FieldError>{codeError}</FieldError> : <FieldDescription className="text-center">O código é do pedido, não do endereço — nunca conclua sem ele.</FieldDescription>}
+              </Field>
+            </div>
+            <DrawerFooter>
+              <Button size="xl" disabled={code.length < 6 || busy} onClick={() => act("delivered", { code })}>
+                {busy ? <Spinner data-icon="inline-start" /> : <LockKeyholeIcon data-icon="inline-start" />}
+                Confirmar entrega
+              </Button>
+              <Button variant="outline" size="lg" onClick={() => setConfirming(false)}>
+                Voltar
+              </Button>
+            </DrawerFooter>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
       <Drawer open={failing} onOpenChange={setFailing}>
         <DrawerContent>
           <div className="mx-auto w-full max-w-lg">
@@ -178,7 +241,7 @@ export default function CourierRoutePage() {
               <DrawerTitle className="font-display text-3xl">O que aconteceu?</DrawerTitle>
               <DrawerDescription>O cliente recebe o motivo no WhatsApp.</DrawerDescription>
             </DrawerHeader>
-            <div className="flex flex-col gap-4 px-4">
+            <div className="flex flex-col gap-4 px-4 py-5">
               <RadioGroup value={reason} onValueChange={(v) => setReason(String(v))} aria-label="Motivo">
                 {data.failureReasons.map((r) => (
                   <FieldLabel key={r} htmlFor={`r-${r}`} className="rounded-xl">

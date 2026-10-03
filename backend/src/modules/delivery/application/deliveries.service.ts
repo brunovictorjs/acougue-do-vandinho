@@ -62,7 +62,7 @@ export class DeliveriesService {
 
   async viewByOrder(orderId: string) {
     const d = await this.repo.byOrder(orderId);
-    return d ? deliveryView(d) : null;
+    return d ? deliveryView(d, undefined, { includeCode: true }) : null;
   }
 
   // ------------------------------------------------------------ courier
@@ -106,9 +106,9 @@ export class DeliveriesService {
     return this.courierDetail(id, courier.id);
   }
 
-  async complete(id: string, courierId: string) {
+  async complete(id: string, courierId: string, code: string) {
     const d = await this.forCourier(id, courierId);
-    d.complete(courierId);
+    d.complete(courierId, code);
     await this.repo.save(d, 'IN_TRANSIT');
     return { ok: true, status: d.status };
   }
@@ -130,7 +130,7 @@ export class DeliveriesService {
       this.repo.find({ status: { in: ['AWAITING', 'IN_TRANSIT', 'NOT_DELIVERED'] } }),
       this.repo.find({ OR: [{ status: 'DELIVERED', deliveredAt: { gte: startOfDay } }, { status: 'CANCELLED', cancelledAt: { gte: startOfDay } }] }, { updatedAt: 'desc' }, 100),
     ]);
-    const all = [...open, ...recentDone].map((d) => deliveryView(d));
+    const all = [...open, ...recentDone].map((d) => deliveryView(d, undefined, { includeCode: true }));
     const group = (s: DeliveryStatus) => all.filter((d) => d.status === s);
     const couriers = await this.prisma.user.findMany({
       where: { role: 'COURIER' },

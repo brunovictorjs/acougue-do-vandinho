@@ -24,8 +24,8 @@ export const Templates = {
   paidPickup: (p: { code: string; method: PaymentMethodKind; items: OrderItemSummary[]; totalCents: number; storeAddress: string; hours: string; link: string }) =>
     `*Pedido ${p.code} confirmado — retirada na loja*\nPagamento via ${METHOD_LABEL[p.method]} aprovado.\n\nItens:\n${itemLines(p.items)}\n\nTotal pago: *${formatBRL(p.totalCents)}*\n\n*Código de retirada: ${p.code}*\nMostre este código no balcão.\n\nRetire em: ${p.storeAddress || 'nossa loja'}${p.hours ? `\nHorário: ${p.hours}` : ''}\n\nDetalhes: ${p.link}`,
 
-  started: (code: string, courier: string | null) =>
-    `*Seu pedido ${code} saiu para entrega!*\n${courier ? `${courier.split(' ')[0]} está` : 'Nosso entregador está'} a caminho. Fique de olho no interfone.`,
+  started: (code: string, courier: string | null, deliveryCode: string) =>
+    `*Seu pedido ${code} saiu para entrega!*\n${courier ? `${courier.split(' ')[0]} está` : 'Nosso entregador está'} a caminho. Fique de olho no interfone.\n\n*Código de entrega: ${deliveryCode}*\nInforme este código ao entregador para receber o pedido. Sem ele, a entrega não é concluída — não passe o código para mais ninguém.`,
 
   delivered: (code: string, link: string) =>
     `*Pedido ${code} entregue.* Bom apetite!\nSe puder, conte o que achou dos produtos: ${link}`,
