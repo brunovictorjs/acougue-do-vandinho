@@ -94,6 +94,16 @@ export class AppConfig {
 
   readonly geocoding = bool(process.env.GEOCODING_ENABLED, true);
 
+  /**
+   * Sent to the OpenStreetMap services (Nominatim, OSRM). Their usage policies
+   * require a User-Agent that names the application and offers a way to reach
+   * whoever runs it — a library default is explicitly not acceptable. Falls back
+   * to the first ADMIN_EMAILS entry so a deployment is identifiable even when
+   * CONTACT_EMAIL is left empty.
+   */
+  readonly contactEmail = (process.env.CONTACT_EMAIL ?? '').trim() || this.adminEmails[0] || '';
+  readonly userAgent = `acougue-do-vandinho/1.0 (+${this.frontendUrl}${this.contactEmail ? `; contato: ${this.contactEmail}` : ''})`;
+
   get isProduction() {
     return this.nodeEnv === 'production';
   }

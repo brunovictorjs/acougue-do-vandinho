@@ -268,20 +268,22 @@ mapa cai para "abrir no Google Maps" com o endereço em texto.
 | **OSRM demo** | rota do entregador até o cliente | **1 req/s**; servidor de demonstração, sem garantia de disponibilidade | **não permitido** — a política restringe a usos não comerciais |
 | **Tiles do OSM** | mapa do entregador (Leaflet) | sem número publicado; proíbe pré-carregamento/offline; exige User-Agent e Referer válidos e cache conforme os headers | **a política manda usar outro provedor** em uso comercial ou de volume |
 
-### Onde estamos hoje (e o que já está correto)
+### Onde estamos hoje
 
 - **Geocodificação: dentro da política.** O ponto é gravado em `latitude`/`longitude` do
   endereço no cadastro, então são ~1 requisição por endereço novo ou editado — não por
-  visualização. O cache que o Nominatim exige, portanto, existe.
-  Falta só o User-Agent trazer contato (hoje é `acougue-do-vandinho-store/0.1 (dev)`; a
-  política pede algo como `acougue-do-vandinho/1.0 (+https://SEU_DOMINIO; contato@...)`).
-- **Rota: recalculada a cada visualização.** `GET /courier/deliveries/:id` chama o OSRM
-  toda vez que o entregador abre ou revalida a tela. A rota loja → cliente não muda:
-  gravar o resultado na entrega (ou cachear pelo par de coordenadas) derruba o volume
-  para 1 chamada por entrega. **Vale fazer antes de trocar de provedor** — reduz o
-  consumo em qualquer serviço pago que você escolher.
-- **Tiles: é o único item fora da política desde o primeiro dia**, independente de
-  volume, porque a loja é comercial. É a troca mais urgente das quatro.
+  visualização. O cache que o Nominatim exige, portanto, existe. O User-Agent identifica
+  a aplicação e traz contato, como as políticas do OpenStreetMap pedem: ele é montado em
+  `AppConfig` a partir de `FRONTEND_URL` e de `CONTACT_EMAIL` (que, se estiver vazio, cai
+  para o primeiro endereço de `ADMIN_EMAILS`).
+- **Rota: cacheada por par de coordenadas.** O `RoutePlanner` guarda a rota em memória
+  por 7 dias (a rua entre a loja e o cliente não muda) e chamadas simultâneas para a
+  mesma rota compartilham uma única requisição. Resultado: ~1 chamada ao OSRM por
+  destino, não uma por abertura da tela do entregador. Quando o roteador falha, a linha
+  reta vale só 1 minuto — o suficiente para não insistir durante a queda, pouco o
+  bastante para a rota real aparecer assim que ele voltar.
+- **Tiles: o único item fora da política**, independente de volume, porque a loja é
+  comercial. É a troca mais urgente das quatro.
 
 ### O que eu recomendo
 
@@ -292,7 +294,7 @@ Para o porte de um açougue de bairro (digamos 30 pedidos/dia → ~900 rotas/mê
 | --- | --- | --- | --- |
 | **Tiles do mapa** | **MapTiler Cloud** | 5 mil sessões de mapa + 100 mil requisições/mês; pago a partir de US$ 30/mês | troca de uma linha no `TileLayer`, estilo bonito e pronto para Leaflet; é a opção com menor atrito aqui |
 | **Rota do entregador** | **openrouteservice** (HeiGIT) | 2 mil rotas/dia, 40/min | API de rota pura, cota generosa para o nosso volume, sem cartão |
-| **Geocodificação** | **ficar no Nominatim** + User-Agent com contato | — | o volume real é baixíssimo e já cacheado; trocar agora é otimização sem problema para resolver |
+| **Geocodificação** | **ficar no Nominatim** | — | o volume real é baixíssimo, já cacheado e o User-Agent já identifica a loja; trocar agora é otimização sem problema para resolver |
 
 Alternativas que valem conhecer, se quiser um fornecedor só para as três coisas:
 
@@ -382,6 +384,7 @@ Antes de abrir a loja:
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `ANTHROPIC_EFFORT`, `ASSISTANT_HISTORY_LIMIT` | Claude | atendente com IA |
 | `UPLOAD_DIR` | arquivos | sempre |
 | `GEOCODING_ENABLED` | Nominatim | nunca (padrão `true`) |
+| `CONTACT_EMAIL` | Nominatim e OSRM (User-Agent) | nunca (cai para `ADMIN_EMAILS`) |
 
 ### `frontend/.env.local`
 

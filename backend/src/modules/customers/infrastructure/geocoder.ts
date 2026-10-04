@@ -22,7 +22,7 @@ export class Geocoder {
     try {
       const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(query)}`;
       const res = await fetch(url, {
-        headers: { 'User-Agent': 'acougue-do-vandinho-store/0.1 (dev)' },
+        headers: { 'User-Agent': this.config.userAgent },
         signal: AbortSignal.timeout(5000),
       });
       if (!res.ok) return null;
