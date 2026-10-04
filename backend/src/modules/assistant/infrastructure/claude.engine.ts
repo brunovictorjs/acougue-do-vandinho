@@ -42,7 +42,9 @@ export class ClaudeEngine {
       try {
         response = await this.client.beta.messages.create({
           model: this.config.assistant.model,
-          max_tokens: 4096,
+          // Covers thinking + reply: on this model thinking is on by default
+          // and shares the budget, so a tight cap truncates the answer.
+          max_tokens: 16000,
           betas: ['server-side-fallback-2026-07-01'],
           fallbacks: 'default',
           output_config: { effort: this.config.assistant.effort },

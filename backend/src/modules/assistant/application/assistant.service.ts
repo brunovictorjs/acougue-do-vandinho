@@ -3,7 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { AppConfig } from '../../../config/app-config.js';
 import { Events, type WhatsAppMessageReceivedEvent } from '../../../shared/application/integration-events.js';
 import { UserDirectory } from '../../identity/application/user-directory.js';
-import { WhatsAppSender } from '../../messaging/application/whatsapp-sender.service.js';
+import { Priority, WhatsAppSender } from '../../messaging/application/whatsapp-sender.service.js';
 import { StoreSettingsService } from '../../store/application/store-settings.service.js';
 import { DEFAULT_ASSISTANT_PROMPT, GUARDRAILS } from '../domain/prompt.js';
 import { ClaudeEngine, Turn } from '../infrastructure/claude.engine.js';
@@ -40,7 +40,9 @@ export class AssistantService {
     } catch {
       reply = 'Tive um problema para responder agora. Tente de novo em instantes ou peça para falar com um atendente.';
     }
-    await this.sender.text(e.phone, reply, { assistant: true, handoff: ctx.handoff });
+    // Prioritised: the customer is waiting on WhatsApp right now, so this
+    // reply jumps ahead of the queued order notifications.
+    await this.sender.text(e.phone, reply, { assistant: true, handoff: ctx.handoff }, { priority: Priority.interactive });
   }
 
   private async claudeReply(phone: string, adminPrompt: string, ctx: ToolContext) {

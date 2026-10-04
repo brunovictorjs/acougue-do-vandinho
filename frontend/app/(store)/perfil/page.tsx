@@ -20,39 +20,90 @@ import { api, errorMessage } from "@/lib/api"
 import { initials, phone } from "@/lib/format"
 import type { Me, StoreInfo } from "@/lib/types"
 
-export default function ProfilePage() {
-  const { me, mutate } = useSession()
-  const { data: store } = useSWR<StoreInfo>("/store")
-  const [busy, setBusy] = React.useState<"name" | "photo" | null>(null)
-  const fileRef = React.useRef<HTMLInputElement>(null)
+/** Seeded from `me` and keyed by user id upstream, so the name fields stay controlled while the session revalidates. */
+function ProfileForm({ me, mutate }: { me: Me; mutate: ReturnType<typeof useSession>["mutate"] }) {
+  const [firstName, setFirstName] = React.useState(me.firstName)
+  const [lastName, setLastName] = React.useState(me.lastName)
+  const [busy, setBusy] = React.useState(false)
 
   async function saveName(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const form = new FormData(e.currentTarget)
-    const first = String(form.get("firstName") ?? "")
-    const last = String(form.get("lastName") ?? "")
-    setBusy("name")
+    setBusy(true)
     try {
-      await mutate(await api<Me>("/me", { method: "PATCH", body: { firstName: first, lastName: last } }), { revalidate: false })
+      await mutate(await api<Me>("/me", { method: "PATCH", body: { firstName, lastName } }), { revalidate: false })
       toast.success("Perfil atualizado")
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
-      setBusy(null)
+      setBusy(false)
     }
   }
+
+  return (
+    <form onSubmit={saveName} className="flex flex-col gap-4">
+      <FieldGroup>
+        <div className="grid grid-cols-2 gap-3">
+          <Field>
+            <FieldLabel htmlFor="first">Nome</FieldLabel>
+            <Input id="first" name="firstName" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required maxLength={60} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="last">Sobrenome</FieldLabel>
+            <Input id="last" name="lastName" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} maxLength={80} />
+          </Field>
+        </div>
+        <Field>
+          <FieldLabel htmlFor="email">E-mail (Google)</FieldLabel>
+          <InputGroup>
+            <InputGroupAddon>
+              <LockIcon />
+            </InputGroupAddon>
+            <InputGroupInput id="email" value={me.email} readOnly disabled />
+          </InputGroup>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="wa">WhatsApp</FieldLabel>
+          <InputGroup>
+            <InputGroupAddon>
+              <MessageCircleIcon />
+            </InputGroupAddon>
+            <InputGroupInput id="wa" value={phone(me.phone) || "Não cadastrado"} readOnly />
+            {me.phoneVerified && (
+              <InputGroupAddon align="inline-end">
+                <Badge className="bg-success/15 text-success">Verificado</Badge>
+              </InputGroupAddon>
+            )}
+          </InputGroup>
+          <FieldDescription>
+            Para trocar o número, <Link href="/perfil/whatsapp">confirme um novo WhatsApp</Link>.
+          </FieldDescription>
+        </Field>
+      </FieldGroup>
+      <Button type="submit" size="xl" disabled={busy}>
+        {busy && <Spinner data-icon="inline-start" />}
+        Salvar alterações
+      </Button>
+    </form>
+  )
+}
+
+export default function ProfilePage() {
+  const { me, mutate } = useSession()
+  const { data: store } = useSWR<StoreInfo>("/store")
+  const [uploading, setUploading] = React.useState(false)
+  const fileRef = React.useRef<HTMLInputElement>(null)
 
   async function uploadPhoto(file: File) {
     const form = new FormData()
     form.append("file", file)
-    setBusy("photo")
+    setUploading(true)
     try {
       await mutate(await api<Me>("/me/avatar", { form }), { revalidate: false })
       toast.success("Foto atualizada")
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
-      setBusy(null)
+      setUploading(false)
     }
   }
 
@@ -76,8 +127,8 @@ export default function ProfilePage() {
                   {me.avatarUrl && <AvatarImage src={me.avatarUrl} alt="Sua foto" />}
                   <AvatarFallback className="text-3xl font-bold text-gold-text">{initials(`${me.firstName} ${me.lastName}`)}</AvatarFallback>
                 </Avatar>
-                <Button size="icon-lg" className="absolute right-0 bottom-0 rounded-full border-4 border-background" aria-label="Trocar foto de perfil" disabled={busy === "photo"} onClick={() => fileRef.current?.click()}>
-                  {busy === "photo" ? <Spinner /> : <CameraIcon />}
+                <Button size="icon-lg" className="absolute right-0 bottom-0 rounded-full border-4 border-background" aria-label="Trocar foto de perfil" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                  {uploading ? <Spinner /> : <CameraIcon />}
                 </Button>
                 <input
                   ref={fileRef}
@@ -95,50 +146,7 @@ export default function ProfilePage() {
               <span className="text-xs text-muted-foreground">JPG, PNG ou WEBP, até 5 MB</span>
             </div>
 
-            <form key={me.id} onSubmit={saveName} className="flex flex-col gap-4">
-              <FieldGroup>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field>
-                    <FieldLabel htmlFor="first">Nome</FieldLabel>
-                    <Input id="first" name="firstName" autoComplete="given-name" defaultValue={me.firstName} required maxLength={60} />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="last">Sobrenome</FieldLabel>
-                    <Input id="last" name="lastName" autoComplete="family-name" defaultValue={me.lastName} maxLength={80} />
-                  </Field>
-                </div>
-                <Field>
-                  <FieldLabel htmlFor="email">E-mail (Google)</FieldLabel>
-                  <InputGroup>
-                    <InputGroupAddon>
-                      <LockIcon />
-                    </InputGroupAddon>
-                    <InputGroupInput id="email" value={me.email} readOnly disabled />
-                  </InputGroup>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="wa">WhatsApp</FieldLabel>
-                  <InputGroup>
-                    <InputGroupAddon>
-                      <MessageCircleIcon />
-                    </InputGroupAddon>
-                    <InputGroupInput id="wa" value={phone(me.phone) || "Não cadastrado"} readOnly />
-                    {me.phoneVerified && (
-                      <InputGroupAddon align="inline-end">
-                        <Badge className="bg-success/15 text-success">Verificado</Badge>
-                      </InputGroupAddon>
-                    )}
-                  </InputGroup>
-                  <FieldDescription>
-                    Para trocar o número, <Link href="/perfil/whatsapp">confirme um novo WhatsApp</Link>.
-                  </FieldDescription>
-                </Field>
-              </FieldGroup>
-              <Button type="submit" size="xl" disabled={busy === "name"}>
-                {busy === "name" && <Spinner data-icon="inline-start" />}
-                Salvar alterações
-              </Button>
-            </form>
+            <ProfileForm key={me.id} me={me} mutate={mutate} />
 
             <ItemGroup className="gap-2">
               {links.map(({ href, icon: Icon, title, desc }) => (

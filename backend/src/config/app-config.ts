@@ -49,9 +49,25 @@ export class AppConfig {
     webhookSecret: process.env.ZAPI_WEBHOOK_SECRET ?? '',
   };
 
+  /**
+   * Outbound WhatsApp pacing. Messages never leave the process faster than
+   * this, because a burst from a single number is what gets it limited or
+   * blocked by WhatsApp. Defaults are deliberately conservative; raise them
+   * only with a warmed-up, paid Z-API instance.
+   */
+  readonly whatsappQueue = {
+    tickMs: Number(process.env.WHATSAPP_QUEUE_TICK_MS ?? 1000),
+    minIntervalMs: Number(process.env.WHATSAPP_MIN_INTERVAL_MS ?? 4000),
+    perPhoneIntervalMs: Number(process.env.WHATSAPP_PER_PHONE_INTERVAL_MS ?? 15000),
+    perMinuteLimit: Number(process.env.WHATSAPP_PER_MINUTE_LIMIT ?? 12),
+    maxAttempts: Number(process.env.WHATSAPP_MAX_ATTEMPTS ?? 5),
+    backoffBaseMs: Number(process.env.WHATSAPP_BACKOFF_BASE_MS ?? 30000),
+    backoffMaxMs: Number(process.env.WHATSAPP_BACKOFF_MAX_MS ?? 1800000),
+  };
+
   readonly assistant = {
     apiKey: process.env.ANTHROPIC_API_KEY ?? '',
-    model: process.env.ANTHROPIC_MODEL ?? 'claude-opus-5-5',
+    model: process.env.ANTHROPIC_MODEL ?? 'claude-opus-5',
     effort: (process.env.ANTHROPIC_EFFORT ?? 'low') as 'low' | 'medium' | 'high',
     historyLimit: Number(process.env.ASSISTANT_HISTORY_LIMIT ?? 20),
   };

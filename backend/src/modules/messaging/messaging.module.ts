@@ -4,6 +4,8 @@ import { IdentityModule } from '../identity/identity.module.js';
 import { StoreModule } from '../store/store.module.js';
 import { InboundService } from './application/inbound.service.js';
 import { OrderNotificationsHandler } from './application/order-notifications.handler.js';
+import { WhatsAppOutboxStore } from './application/outbox.service.js';
+import { OutboxWorker } from './application/outbox.worker.js';
 import { WhatsAppSender } from './application/whatsapp-sender.service.js';
 import { WhatsAppGateway } from './domain/whatsapp-gateway.js';
 import { LogWhatsAppGateway } from './infrastructure/log-whatsapp.gateway.js';
@@ -15,6 +17,8 @@ import { AdminWhatsAppController, ZApiWebhookController } from './presentation/m
   controllers: [ZApiWebhookController, AdminWhatsAppController],
   providers: [
     WhatsAppSender,
+    WhatsAppOutboxStore,
+    OutboxWorker,
     InboundService,
     OrderNotificationsHandler,
     {

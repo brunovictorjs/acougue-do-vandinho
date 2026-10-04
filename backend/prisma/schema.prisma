@@ -442,9 +442,36 @@ model WhatsAppMessage {
   body      String
   meta      String? // JSON
   provider  String // log | zapi
-  status    String           @default("sent") // sent | failed | received
+  status    String           @default("sent") // queued | sent | failed | received
   error     String?
   createdAt DateTime         @default(now())
 
   @@index([phone, createdAt])
+}
+
+/// Outbound queue. Nothing talks to WhatsApp directly: senders append here and
+/// `OutboxWorker` drains it one message at a time, respecting the rate limits
+/// in AppConfig.whatsappQueue. `idempotencyKey` makes a duplicated business
+/// event (a Stripe webhook redelivery, say) a no-op instead of a second
+/// message to the customer.
+model WhatsAppOutbox {
+  id             String    @id @default(cuid())
+  phone          String
+  kind           String    @default("text") // text | location
+  body           String
+  payload        String? // JSON gateway arguments (location: lat/long/title/address)
+  meta           String? // JSON transcript meta
+  idempotencyKey String?   @unique
+  priority       Int       @default(0) // higher drains first (phone codes, assistant replies)
+  status         String    @default("PENDING") // PENDING | SENT | FAILED
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime  @default(now())
+  sentAt         DateTime?
+  lastError      String?
+  messageId      String? // WhatsAppMessage row kept in sync with this entry
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status, priority, nextAttemptAt])
+  @@index([phone, sentAt])
 }

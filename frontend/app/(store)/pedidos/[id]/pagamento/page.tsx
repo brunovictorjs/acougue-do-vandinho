@@ -178,7 +178,7 @@ export default function PaymentPage() {
             <p className="text-sm text-muted-foreground">
               Pedido #{order.code} · {money(order.totalCents)}
             </p>
-            <StripePayment clientSecret={payment.clientSecret} amountCents={order.totalCents} />
+            <StripePayment clientSecret={payment.clientSecret} amountCents={order.totalCents} onFailure={() => void mutate()} />
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <Spinner /> Pagou com Pix? Assim que o banco confirmar, esta tela atualiza sozinha.
             </p>

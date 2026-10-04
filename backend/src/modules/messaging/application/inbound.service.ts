@@ -5,6 +5,7 @@ import { BusinessRuleError } from '../../../shared/domain/errors.js';
 import { normalizePhone } from '../../../shared/domain/text.js';
 import { DomainEventPublisher } from '../../../shared/infrastructure/events/domain-event-publisher.js';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service.js';
+import { WhatsAppOutboxStore } from './outbox.service.js';
 import { WhatsAppSender } from './whatsapp-sender.service.js';
 
 /** Incoming WhatsApp messages (Z-API webhook or the admin simulator). */
@@ -14,6 +15,7 @@ export class InboundService {
     private readonly sender: WhatsAppSender,
     private readonly events: DomainEventPublisher,
     private readonly prisma: PrismaService,
+    private readonly outbox: WhatsAppOutboxStore,
   ) {}
 
   async receive(rawPhone: string, text: string, senderName?: string | null, via: 'zapi' | 'simulator' = 'zapi') {
@@ -60,12 +62,13 @@ export class InboundService {
 
   async stats(days = 7) {
     const since = new Date(Date.now() - days * 86_400_000);
-    const [conversations, outbound, failed, handoffs] = await Promise.all([
+    const [conversations, outbound, failed, handoffs, queue] = await Promise.all([
       this.prisma.whatsAppMessage.groupBy({ by: ['phone'], where: { direction: 'INBOUND', createdAt: { gte: since } } }),
       this.prisma.whatsAppMessage.count({ where: { direction: 'OUTBOUND', createdAt: { gte: since }, meta: { contains: '"template"' } } }),
       this.prisma.whatsAppMessage.count({ where: { direction: 'OUTBOUND', createdAt: { gte: since }, status: 'failed' } }),
       this.prisma.whatsAppMessage.count({ where: { direction: 'OUTBOUND', createdAt: { gte: since }, meta: { contains: '"handoff":true' } } }),
+      this.outbox.stats(),
     ]);
-    return { days, conversations: conversations.length, notifications: outbound, failed, handoffs, provider: this.sender.provider };
+    return { days, conversations: conversations.length, notifications: outbound, failed, handoffs, provider: this.sender.provider, queue };
   }
 }
