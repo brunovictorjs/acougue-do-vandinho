@@ -10,3 +10,6 @@ node_modules
 /uploads
 /src/generated
 /dist
+
+# Cache incremental do tsc: muda a cada build e conflita em todo merge.
+*.tsbuildinfo
