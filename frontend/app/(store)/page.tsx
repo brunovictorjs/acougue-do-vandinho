@@ -18,7 +18,7 @@ export default async function HomePage(props: PageProps<"/">) {
   return (
     <ShopShell>
       <main>
-        <Hero whatsapp={store.whatsapp} />
+        <Hero whatsapp={store.whatsapp} image={store.heroImageUrl} />
         <Reveal>
           <BenefitsBar />
           <OffersSection offers={home.offers} />

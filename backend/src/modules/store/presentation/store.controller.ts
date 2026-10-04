@@ -12,7 +12,9 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { BusinessRuleError } from '../../../shared/domain/errors.js';
 import { Public, Roles } from '../../../shared/presentation/auth.js';
 import { DeliveryZonesService } from '../application/delivery-zones.service.js';
 import { StoreSettingsService } from '../application/store-settings.service.js';
@@ -87,6 +89,20 @@ export class StoreController {
   @Patch('admin/settings')
   updateSettings(@Body() dto: UpdateSettingsDto) {
     return this.settings.update(dto as never);
+  }
+
+  @Roles('ADMIN')
+  @Post('admin/settings/hero-image')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  uploadHeroImage(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) throw new BusinessRuleError('Envie uma imagem.');
+    return this.settings.updateHeroImage(file);
+  }
+
+  @Roles('ADMIN')
+  @Delete('admin/settings/hero-image')
+  removeHeroImage() {
+    return this.settings.removeHeroImage();
   }
 
   @Roles('ADMIN')

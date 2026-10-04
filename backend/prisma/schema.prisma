@@ -400,6 +400,7 @@ model StoreSettings {
   longitude            Float?
   hours                String   @default("[]") // JSON [{label, value}]
   about                String   @default("")
+  heroImageUrl         String   @default("") // Imagem de fundo do hero; vazio usa a imagem padrao do frontend
   pixExpirationMinutes Int      @default(30)
   assistantEnabled     Boolean  @default(true)
   assistantPrompt      String   @default("")

@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckIcon, ExternalLinkIcon, FileTextIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react"
+import { CheckIcon, ExternalLinkIcon, FileTextIcon, ImageIcon, PencilIcon, PlusIcon, Trash2Icon, UploadIcon, XIcon } from "lucide-react"
 import Link from "next/link"
 import * as React from "react"
 import { toast } from "sonner"
@@ -33,6 +33,7 @@ type Settings = {
   longitude: number | null
   hours: Array<{ label: string; value: string }>
   about: string
+  heroImageUrl: string
   pixExpirationMinutes: number
   privacyPolicy: string
   privacyUpdatedAt: string | null
@@ -177,7 +178,74 @@ function StoreTab({ s, onSaved }: { s: Settings; onSaved: () => void }) {
           </Button>
         </CardFooter>
       </Card>
+      <HeroImageCard s={s} onSaved={onSaved} />
     </div>
+  )
+}
+
+/** Imagem de fundo do hero da home. Vazio = a imagem padrao que acompanha o site. */
+function HeroImageCard({ s, onSaved }: { s: Settings; onSaved: () => void }) {
+  const input = React.useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = React.useState(false)
+
+  async function upload(file: File) {
+    const form = new FormData()
+    form.append("file", file)
+    setBusy(true)
+    try {
+      await api("/admin/settings/hero-image", { form })
+      toast.success("Imagem do hero atualizada")
+      onSaved()
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy(false)
+      if (input.current) input.current.value = ""
+    }
+  }
+
+  async function reset() {
+    setBusy(true)
+    try {
+      await api("/admin/settings/hero-image", { method: "DELETE" })
+      toast.success("Voltamos para a imagem padrão")
+      onSaved()
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card className="xl:col-span-2">
+      <CardHeader>
+        <CardTitle className="label-caps text-sm">Imagem do topo da home</CardTitle>
+        <CardDescription>Aparece atrás do título e dos botões, escurecida para o texto continuar legível. Use uma foto larga (a partir de 1920×1080) em JPG, PNG ou WEBP, até 5 MB.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div className="relative isolate aspect-[21/9] overflow-hidden rounded-xl border">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={s.heroImageUrl || "/meats.jpg"} alt="Prévia do topo da home" className="absolute inset-0 size-full object-cover" />
+          <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black/30" />
+          <div className="relative flex h-full flex-col justify-center gap-1 p-6 text-white">
+            <span className="font-display text-3xl leading-none">Corte na hora,</span>
+            <span className="font-display text-3xl leading-none text-brand-gold">direto pra sua mesa.</span>
+          </div>
+        </div>
+        <FieldDescription>{s.heroImageUrl ? "Imagem personalizada em uso." : "Usando a imagem padrão do site."}</FieldDescription>
+      </CardContent>
+      <CardFooter className="flex-wrap gap-2">
+        <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+        <Button disabled={busy} onClick={() => input.current?.click()}>
+          {busy ? <Spinner data-icon="inline-start" /> : <UploadIcon data-icon="inline-start" />}
+          Enviar imagem
+        </Button>
+        <Button variant="outline" disabled={busy || !s.heroImageUrl} onClick={reset}>
+          <ImageIcon data-icon="inline-start" /> Usar a imagem padrão
+        </Button>
+      </CardFooter>
+    </Card>
   )
 }
 

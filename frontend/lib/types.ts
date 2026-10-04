@@ -72,6 +72,8 @@ export interface StoreInfo {
   longitude: number | null
   hours: Array<{ label: string; value: string }>
   about: string
+  /** Vazio: o hero usa a imagem padrao. */
+  heroImageUrl: string
 }
 
 export interface LegalDocument {

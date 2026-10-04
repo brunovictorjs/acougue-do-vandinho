@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { AppConfig } from '../../../config/app-config.js';
+import { BusinessRuleError } from '../../../shared/domain/errors.js';
 import { parseJson } from '../../../shared/domain/text.js';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service.js';
+import { FileStorage } from '../../../shared/infrastructure/storage/file-storage.js';
 import { privacyPolicyTemplate, termsTemplate } from '../domain/legal-templates.js';
 import { NOTIFICATION_TEMPLATES, NotificationTemplate, resolveNotifications } from '../domain/notification-templates.js';
 
@@ -18,6 +21,7 @@ export interface StoreSettingsView {
   longitude: number | null;
   hours: OpeningHours[];
   about: string;
+  heroImageUrl: string;
   pixExpirationMinutes: number;
   assistantEnabled: boolean;
   assistantPrompt: string;
@@ -36,9 +40,15 @@ export interface LegalDocumentView {
 
 export type StoreSettingsPatch = Partial<Omit<StoreSettingsView, 'notificationLabels' | 'privacyUpdatedAt' | 'termsUpdatedAt'>>;
 
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
 @Injectable()
 export class StoreSettingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: FileStorage,
+    private readonly config: AppConfig,
+  ) {}
 
   async get(): Promise<StoreSettingsView> {
     const s = await this.prisma.storeSettings.upsert({ where: { id: 1 }, create: { id: 1 }, update: {} });
@@ -51,6 +61,7 @@ export class StoreSettingsService {
       longitude: s.longitude,
       hours: parseJson<OpeningHours[]>(s.hours, []),
       about: s.about,
+      heroImageUrl: s.heroImageUrl,
       pixExpirationMinutes: s.pixExpirationMinutes,
       assistantEnabled: s.assistantEnabled,
       assistantPrompt: s.assistantPrompt,
@@ -75,7 +86,29 @@ export class StoreSettingsService {
       longitude: s.longitude,
       hours: s.hours,
       about: s.about,
+      // Vazio: o frontend cai na imagem padrao do hero.
+      heroImageUrl: s.heroImageUrl,
     };
+  }
+
+  /** Troca a imagem de fundo do hero e descarta a anterior. */
+  async updateHeroImage(file: { buffer: Buffer; mimetype: string; size: number; originalname: string }) {
+    if (!IMAGE_TYPES.includes(file.mimetype)) throw new BusinessRuleError('Envie uma imagem JPG, PNG ou WEBP.');
+    if (file.size > this.config.uploads.maxImageBytes) throw new BusinessRuleError('A imagem deve ter ate 5 MB.');
+    const current = await this.get();
+    const stored = await this.storage.save('store', file.originalname, file.buffer, file.mimetype);
+    await this.prisma.storeSettings.update({ where: { id: 1 }, data: { heroImageUrl: stored.url } });
+    if (current.heroImageUrl) await this.storage.remove(current.heroImageUrl);
+    return this.get();
+  }
+
+  /** Volta para a imagem padrao do hero. */
+  async removeHeroImage() {
+    const current = await this.get();
+    if (!current.heroImageUrl) return current;
+    await this.prisma.storeSettings.update({ where: { id: 1 }, data: { heroImageUrl: '' } });
+    await this.storage.remove(current.heroImageUrl);
+    return this.get();
   }
 
   /** Documentos publicos (/privacidade e /termos), tambem usados na tela de consentimento do Google OAuth. */
