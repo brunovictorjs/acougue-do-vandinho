@@ -40,7 +40,7 @@ Os dados do seed (preços, endereço da loja, bairros, atendentes, pedidos) são
 
 ## Modo de testes (padrão) × serviços reais
 
-Tudo roda sem serviços pagos. Cada integração tem um adaptador local e um real, trocado só por variável de ambiente (`backend/.env`):
+Tudo roda sem serviços pagos. Cada integração tem um adaptador local e um real, trocado só por variável de ambiente (`backend/.env`). O passo a passo de cada conta, credencial e webhook está em **[INTEGRACOES.md](INTEGRACOES.md)**:
 
 | Integração | Teste (padrão) | Real |
 | --- | --- | --- |
