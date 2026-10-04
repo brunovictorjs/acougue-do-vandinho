@@ -68,7 +68,7 @@ export function ReviewDrawer({
             <DrawerTitle className="font-display text-3xl">Como estava?</DrawerTitle>
           </DrawerHeader>
           <div className="flex flex-col gap-5 px-4">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col items-center gap-1">
               <div className="flex gap-1" role="radiogroup" aria-label="Nota">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} estrelas`} onClick={() => setRating(n)} className="flex size-12 items-center justify-center">
@@ -78,7 +78,7 @@ export function ReviewDrawer({
               </div>
               <span className="font-semibold text-gold-text">{LABELS[rating]}</span>
             </div>
-            <ToggleGroup multiple variant="chip" size="none" className="flex-wrap" value={chosen} onValueChange={setChosen} aria-label="O que você gostou">
+            <ToggleGroup multiple variant="chip" size="none" className="flex-wrap justify-center" value={chosen} onValueChange={setChosen} aria-label="O que você gostou">
               {tags.map((t) => (
                 <ToggleGroupItem key={t} value={t}>
                   {t}
@@ -87,7 +87,7 @@ export function ReviewDrawer({
             </ToggleGroup>
             <Field>
               <FieldLabel htmlFor="review-comment">Conte mais (opcional)</FieldLabel>
-              <Textarea id="review-comment" rows={3} maxLength={1000} value={comment} onChange={(e) => setComment(e.target.value)} />
+              <Textarea id="review-comment" rows={3} maxLength={1000} value={comment} onChange={(e) => setComment(e.target.value)} className="mb-4" />
             </Field>
           </div>
           <DrawerFooter>
