@@ -403,8 +403,12 @@ model StoreSettings {
   pixExpirationMinutes Int      @default(30)
   assistantEnabled     Boolean  @default(true)
   assistantPrompt      String   @default("")
-  notifications        String   @default("{}") // JSON { [template]: boolean }
-  updatedAt            DateTime @updatedAt
+  notifications        String    @default("{}") // JSON { [template]: boolean }
+  privacyPolicy        String    @default("") // Markdown publicado em /privacidade
+  privacyUpdatedAt     DateTime?
+  terms                String    @default("") // Markdown publicado em /termos
+  termsUpdatedAt       DateTime?
+  updatedAt            DateTime  @updatedAt
 }
 
 model DeliveryZone {

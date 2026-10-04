@@ -35,6 +35,8 @@ export class UpdateSettingsDto {
   @IsOptional() @IsBoolean() assistantEnabled?: boolean;
   @IsOptional() @IsString() @MaxLength(8000) assistantPrompt?: string;
   @IsOptional() @IsObject() notifications?: Record<string, boolean>;
+  @IsOptional() @IsString() @MaxLength(60000) privacyPolicy?: string;
+  @IsOptional() @IsString() @MaxLength(60000) terms?: string;
 }
 
 export class ZoneDto {
@@ -58,6 +60,12 @@ export class StoreController {
   }
 
   @Public()
+  @Get('store/legal')
+  legal() {
+    return this.settings.legal();
+  }
+
+  @Public()
   @Get('store/delivery-quote')
   quote(@Query('neighborhood') neighborhood = '') {
     return this.zones.quote(neighborhood);
@@ -67,6 +75,12 @@ export class StoreController {
   @Get('admin/settings')
   getSettings() {
     return this.settings.get();
+  }
+
+  @Roles('ADMIN')
+  @Get('admin/settings/legal-templates')
+  legalTemplates() {
+    return this.settings.legalTemplates();
   }
 
   @Roles('ADMIN')

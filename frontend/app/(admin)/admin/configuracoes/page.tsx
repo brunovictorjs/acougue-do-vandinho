@@ -1,10 +1,12 @@
 "use client"
 
-import { CheckIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react"
+import { CheckIcon, ExternalLinkIcon, FileTextIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react"
+import Link from "next/link"
 import * as React from "react"
 import { toast } from "sonner"
 import useSWR from "swr"
 import { AdminPage } from "@/components/admin/admin-shell"
+import { MarkdownEditor } from "@/components/admin/markdown-editor"
 import { LazyMap } from "@/components/maps/map"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -32,7 +34,12 @@ type Settings = {
   hours: Array<{ label: string; value: string }>
   about: string
   pixExpirationMinutes: number
+  privacyPolicy: string
+  privacyUpdatedAt: string | null
+  terms: string
+  termsUpdatedAt: string | null
 }
+type LegalTemplates = { privacyPolicy: string; terms: string }
 type Zone = { id: string; neighborhood: string; feeCents: number; etaMinutes: number; active: boolean }
 
 const formatCoords = (lat: number | null, lng: number | null) => (lat != null && lng != null ? `${lat.toFixed(7)}, ${lng.toFixed(7)}` : "")
@@ -339,10 +346,73 @@ function PaymentsTab({ s, onSaved }: { s: Settings; onSaved: () => void }) {
   )
 }
 
+/** Documentos públicos exigidos na verificação do Google OAuth: /privacidade e /termos. */
+function LegalTab({ s, field, onSaved }: { s: Settings; field: "privacyPolicy" | "terms"; onSaved: () => void }) {
+  const doc = field === "privacyPolicy" ? { title: "Política de Privacidade", href: "/privacidade", updatedAt: s.privacyUpdatedAt } : { title: "Termos de Serviço", href: "/termos", updatedAt: s.termsUpdatedAt }
+  const [v, setV] = React.useState(s[field])
+  const [busy, setBusy] = React.useState(false)
+
+  async function loadTemplate() {
+    if (v.trim() && !confirm("Isso substitui o texto atual pelo modelo sugerido. Continuar?")) return
+    try {
+      const t = await api<LegalTemplates>("/admin/settings/legal-templates")
+      setV(t[field])
+      toast.success("Modelo carregado — revise e publique.")
+    } catch (e) {
+      toast.error(errorMessage(e))
+    }
+  }
+
+  async function save() {
+    setBusy(true)
+    try {
+      await api("/admin/settings", { method: "PATCH", body: { [field]: v } })
+      toast.success(`${doc.title} publicada`)
+      onSaved()
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="label-caps text-sm">{doc.title}</CardTitle>
+        <CardDescription>
+          Publicada em <code className="text-foreground">{doc.href}</code> — use esse endereço na tela de consentimento do Google OAuth.
+          {doc.updatedAt ? ` Última atualização em ${new Date(doc.updatedAt).toLocaleDateString("pt-BR")}.` : " Ainda não publicada."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {!v.trim() && (
+          <Alert>
+            <AlertDescription>O documento está vazio e a página pública aparece em branco. Comece pelo modelo sugerido — ele já vem com os dados da loja — e ajuste o que for diferente na sua operação.</AlertDescription>
+          </Alert>
+        )}
+        <MarkdownEditor id={`legal-${field}`} value={v} onChange={setV} />
+      </CardContent>
+      <CardFooter className="flex-wrap gap-2">
+        <Button size="lg" disabled={busy} onClick={save}>
+          {busy ? <Spinner data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" />}
+          Publicar
+        </Button>
+        <Button variant="outline" onClick={loadTemplate}>
+          <FileTextIcon data-icon="inline-start" /> Usar modelo sugerido
+        </Button>
+        <Button variant="ghost" nativeButton={false} render={<Link href={doc.href} target="_blank" />}>
+          <ExternalLinkIcon data-icon="inline-start" /> Ver página pública
+        </Button>
+      </CardFooter>
+    </Card>
+  )
+}
+
 export default function SettingsPage() {
   const { data, mutate } = useSWR<Settings>("/admin/settings")
   return (
-    <AdminPage title="Configurações" description="Loja, entrega e pagamentos">
+    <AdminPage title="Configurações" description="Loja, entrega, pagamentos e páginas legais">
       {!data ? (
         <Skeleton className="h-96" />
       ) : (
@@ -351,6 +421,8 @@ export default function SettingsPage() {
             <TabsTrigger value="loja">Loja</TabsTrigger>
             <TabsTrigger value="entrega">Entrega</TabsTrigger>
             <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
+            <TabsTrigger value="privacidade">Privacidade</TabsTrigger>
+            <TabsTrigger value="termos">Termos</TabsTrigger>
           </TabsList>
           <TabsContent value="loja" className="mt-4">
             <StoreTab s={data} onSaved={() => void mutate()} />
@@ -360,6 +432,12 @@ export default function SettingsPage() {
           </TabsContent>
           <TabsContent value="pagamentos" className="mt-4">
             <PaymentsTab s={data} onSaved={() => void mutate()} />
+          </TabsContent>
+          <TabsContent value="privacidade" className="mt-4">
+            <LegalTab s={data} field="privacyPolicy" onSaved={() => void mutate()} />
+          </TabsContent>
+          <TabsContent value="termos" className="mt-4">
+            <LegalTab s={data} field="terms" onSaved={() => void mutate()} />
           </TabsContent>
         </Tabs>
       )}

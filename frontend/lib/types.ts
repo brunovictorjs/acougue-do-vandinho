@@ -74,6 +74,17 @@ export interface StoreInfo {
   about: string
 }
 
+export interface LegalDocument {
+  markdown: string
+  updatedAt: string | null
+}
+
+export interface StoreLegal {
+  privacy: LegalDocument
+  terms: LegalDocument
+  store: { name: string; cnpj: string; whatsapp: string; addressLine: string }
+}
+
 export interface DeliveryQuote {
   served: boolean
   zoneId: string | null

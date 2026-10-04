@@ -73,7 +73,7 @@ export function Footer({ store }: { store: StoreInfo }) {
           <Logo size={56} />
           <span className="font-heading text-sm tracking-widest text-muted-foreground uppercase">Qualidade · Atendimento · Confiança</span>
         </div>
-        <nav className="flex gap-5 text-sm" aria-label="Rodapé">
+        <nav className="flex flex-wrap gap-x-5 gap-y-2 text-sm" aria-label="Rodapé">
           <Link href="/pedidos" className="text-muted-foreground hover:text-foreground">
             Meus pedidos
           </Link>
@@ -82,6 +82,12 @@ export function Footer({ store }: { store: StoreInfo }) {
               Fale com a gente
             </a>
           )}
+          <Link href="/privacidade" className="text-muted-foreground hover:text-foreground">
+            Privacidade
+          </Link>
+          <Link href="/termos" className="text-muted-foreground hover:text-foreground">
+            Termos
+          </Link>
         </nav>
       </div>
       <Separator />

@@ -93,6 +93,17 @@ function LoginForm() {
           Continuar com Google
         </a>
         {providers && !providers.google && <p className="-mt-3 text-xs text-muted-foreground">Google SSO aparece aqui assim que GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET forem configurados na API.</p>}
+        <p className="-mt-3 text-xs text-muted-foreground">
+          Ao continuar, você concorda com os{" "}
+          <Link href="/termos" className="text-gold-text underline underline-offset-2">
+            Termos de Serviço
+          </Link>{" "}
+          e com a{" "}
+          <Link href="/privacidade" className="text-gold-text underline underline-offset-2">
+            Política de Privacidade
+          </Link>
+          .
+        </p>
 
         {providers?.dev && (
           <div className="flex flex-col gap-3 rounded-xl border border-dashed p-4">

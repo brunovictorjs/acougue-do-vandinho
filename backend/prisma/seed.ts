@@ -8,6 +8,7 @@ import 'dotenv/config';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { generateDeliveryCode } from '../src/modules/delivery/domain/delivery.js';
+import { privacyPolicyTemplate, termsTemplate } from '../src/modules/store/domain/legal-templates.js';
 
 const prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL ?? 'file:./dev.db' }) });
 
@@ -57,13 +58,17 @@ async function main() {
     prisma.storeSettings.deleteMany(),
   ]);
 
+  const storeIdentity = {
+    name: 'Açougue do Vandinho',
+    cnpj: '00.000.000/0001-00',
+    whatsapp: '5511900000000',
+    addressLine: 'Rua Exemplo, 100 — Centro, São Paulo/SP',
+  };
+
   await prisma.storeSettings.create({
     data: {
       id: 1,
-      name: 'Açougue do Vandinho',
-      cnpj: '00.000.000/0001-00',
-      whatsapp: '5511900000000',
-      addressLine: 'Rua Exemplo, 100 — Centro, São Paulo/SP',
+      ...storeIdentity,
       latitude: STORE.lat,
       longitude: STORE.lng,
       hours: JSON.stringify([
@@ -73,6 +78,10 @@ async function main() {
       ]),
       about:
         'Açougue de bairro com cortes selecionados, porcionados na hora do jeito que você pede. Entregamos na região ou você retira no balcão.',
+      privacyPolicy: privacyPolicyTemplate(storeIdentity),
+      privacyUpdatedAt: new Date(),
+      terms: termsTemplate(storeIdentity),
+      termsUpdatedAt: new Date(),
     },
   });
 
