@@ -1,6 +1,6 @@
 "use client"
 
-import { BellIcon, BotIcon, MapPinIcon, MessageCircleIcon, RotateCcwIcon, SendIcon, ShieldCheckIcon, UserRoundIcon } from "lucide-react"
+import { BellIcon, BotIcon, MailIcon, MapPinIcon, MessageCircleIcon, RotateCcwIcon, SendIcon, ShieldCheckIcon, UserRoundIcon } from "lucide-react"
 import * as React from "react"
 import { toast } from "sonner"
 import useSWR from "swr"
@@ -26,11 +26,18 @@ import { api, errorMessage } from "@/lib/api"
 import { dateTime, maskPhoneInput, phone } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
-type Stats = { days: number; conversations: number; notifications: number; failed: number; handoffs: number; provider: "log" | "zapi" }
+type Stats = { days: number; conversations: number; notifications: number; failed: number; handoffs: number; provider: "log" | "zapi"; email: { provider: "log" | "resend"; recipients: number } }
 type Conversation = { phone: string; customerName: string | null; messages: number; lastAt: string; lastMessage: string; handedOff: boolean }
 type Msg = { id: string; phone: string; direction: "INBOUND" | "OUTBOUND"; kind: string; body: string; status: string; createdAt: string; meta: Record<string, unknown> | null }
 type Info = { engine: string; defaultPrompt: string; guardrails: string; tools: Array<{ name: string; description: string }> }
-type Settings = { assistantEnabled: boolean; assistantPrompt: string; notifications: Record<string, boolean>; notificationLabels: Record<string, string> }
+type Settings = {
+  assistantEnabled: boolean
+  assistantPrompt: string
+  notifications: Record<string, boolean>
+  notificationLabels: Record<string, string>
+  adminEmailNotifications: Record<string, boolean>
+  adminEmailNotificationLabels: Record<string, string>
+}
 
 /** WhatsApp formatting (*bold*) rendered for the admin transcript. */
 function WaText({ text }: { text: string }) {
@@ -257,10 +264,27 @@ function Instructions({ info, settings, onSaved }: { info: Info; settings: Setti
   )
 }
 
-function Notifications({ settings, onSaved }: { settings: Settings; onSaved: () => void }) {
+/** Um grupo de avisos ligáveis: o PATCH manda o mapa inteiro com a chave trocada. */
+function NotificationToggles({
+  title,
+  description,
+  icon,
+  field,
+  labels,
+  values,
+  onSaved,
+}: {
+  title: string
+  description: string
+  icon: React.ReactNode
+  field: "notifications" | "adminEmailNotifications"
+  labels: Record<string, string>
+  values: Record<string, boolean>
+  onSaved: () => void
+}) {
   async function toggle(key: string, value: boolean) {
     try {
-      await api("/admin/settings", { method: "PATCH", body: { notifications: { ...settings.notifications, [key]: value } } })
+      await api("/admin/settings", { method: "PATCH", body: { [field]: { ...values, [key]: value } } })
       onSaved()
     } catch (e) {
       toast.error(errorMessage(e))
@@ -269,23 +293,66 @@ function Notifications({ settings, onSaved }: { settings: Settings; onSaved: () 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="label-caps text-sm">Avisos automáticos no WhatsApp</CardTitle>
-        <CardDescription>Enviados só para o telefone de quem fez o pedido.</CardDescription>
+        <CardTitle className="label-caps text-sm">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         <FieldGroup>
-          {Object.entries(settings.notificationLabels).map(([key, label]) => (
+          {Object.entries(labels).map(([key, label]) => (
             <Field key={key} orientation="horizontal">
-              <BellIcon className="size-4 text-gold-text" aria-hidden />
+              <span className="text-gold-text" aria-hidden>
+                {icon}
+              </span>
               <FieldContent>
                 <FieldTitle>{label}</FieldTitle>
               </FieldContent>
-              <Switch checked={settings.notifications[key]} onCheckedChange={(v) => toggle(key, v)} aria-label={label} />
+              <Switch checked={values[key]} onCheckedChange={(v) => toggle(key, v)} aria-label={label} />
             </Field>
           ))}
         </FieldGroup>
       </CardContent>
     </Card>
+  )
+}
+
+function Notifications({ settings, stats, onSaved }: { settings: Settings; stats?: Stats; onSaved: () => void }) {
+  const mail = stats?.email
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <NotificationToggles
+        title="Avisos automáticos no WhatsApp"
+        description="Enviados só para o telefone de quem fez o pedido."
+        icon={<BellIcon className="size-4" />}
+        field="notifications"
+        labels={settings.notificationLabels}
+        values={settings.notifications}
+        onSaved={onSaved}
+      />
+      <div className="flex flex-col gap-4">
+        <NotificationToggles
+          title="Avisos por e-mail para a administração"
+          description={
+            mail
+              ? `Enviados para ${mail.recipients} ${mail.recipients === 1 ? "administrador" : "administradores"}${mail.provider === "log" ? " — por enquanto só no terminal da API" : ""}.`
+              : "Enviados para os e-mails dos usuários administradores."
+          }
+          icon={<MailIcon className="size-4" />}
+          field="adminEmailNotifications"
+          labels={settings.adminEmailNotificationLabels}
+          values={settings.adminEmailNotifications}
+          onSaved={onSaved}
+        />
+        {mail?.provider === "log" && (
+          <Alert>
+            <MailIcon aria-hidden />
+            <AlertTitle>E-mails em modo de testes</AlertTitle>
+            <AlertDescription>
+              Para entregar de verdade, configure EMAIL_PROVIDER=resend, RESEND_API_KEY e EMAIL_FROM (domínio verificado) no .env da API.
+            </AlertDescription>
+          </Alert>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -349,7 +416,7 @@ export default function AssistantPage() {
           {info && settings ? <Instructions info={info} settings={settings} onSaved={() => void mutate()} /> : <Skeleton className="h-96" />}
         </TabsContent>
         <TabsContent value="notify" className="mt-4">
-          {settings ? <Notifications settings={settings} onSaved={() => void mutate()} /> : <Skeleton className="h-64" />}
+          {settings ? <Notifications settings={settings} stats={stats} onSaved={() => void mutate()} /> : <Skeleton className="h-64" />}
         </TabsContent>
       </Tabs>
       <Field>

@@ -46,6 +46,7 @@ Tudo roda sem serviços pagos. Cada integração tem um adaptador local e um rea
 | --- | --- | --- |
 | Pagamento | `PAYMENT_PROVIDER=fake` — Pix com QR simulado e botão "Simular pagamento" | `PAYMENT_PROVIDER=stripe` + `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` e `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` no frontend |
 | WhatsApp | `WHATSAPP_PROVIDER=log` — mensagens aparecem no terminal da API e em Admin › Atendente IA | `WHATSAPP_PROVIDER=zapi` + `ZAPI_INSTANCE_ID`, `ZAPI_TOKEN`, `ZAPI_CLIENT_TOKEN`, `ZAPI_WEBHOOK_SECRET` |
+| E-mail (avisos do admin) | `EMAIL_PROVIDER=log` — o e-mail aparece no terminal da API | `EMAIL_PROVIDER=resend` + `RESEND_API_KEY` e `EMAIL_FROM` de domínio verificado |
 | Atendente IA | sem `ANTHROPIC_API_KEY`: respostas por regras (mesmas ferramentas e regras de privacidade) | `ANTHROPIC_API_KEY` — Claude (`claude-opus-5-5`, effort `low`, fallback automático em recusas) |
 | Login | botões de login de teste | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (redirect: `http://localhost:3000/api/auth/google/callback`) |
 
@@ -61,13 +62,14 @@ Tudo roda sem serviços pagos. Cada integração tem um adaptador local e um rea
 - **Taxa de entrega** por bairro (Admin › Configurações › Entrega), somada ao total. Bairro fora da lista = só retirada.
 - **Cadastro obrigatório** após o Google: WhatsApp confirmado por código + pelo menos um endereço.
 - **Avaliações** só de quem recebeu o produto (uma por produto, editável).
+- **E-mail para a administração:** pedido pago, cancelado, entregue (ou retirado) e não entregue avisam por e-mail todo usuário ADMIN e os endereços de `ADMIN_EMAILS`, com link para o painel. Cada aviso liga/desliga em Admin › Atendente IA › Avisos automáticos.
 - **WhatsApp:** avisos só para o telefone do dono do pedido; retirada envia itens, total, código e a localização da loja. O atendente só consulta pedidos do número que está conversando e envia a lista de atendentes humanos quando pedem.
 
 ## Arquitetura do backend
 
 Cada contexto em `backend/src/modules/<contexto>` com `domain / application / infrastructure / presentation`:
 `identity`, `customers`, `store`, `support`, `catalog`, `favorites`, `reviews`, `ordering`, `payments`, `delivery`, `messaging`, `assistant`, `finance`.
-Contextos conversam por serviços de aplicação exportados e por **eventos de integração** (`src/shared/application/integration-events.ts`) — ex.: `payment.succeeded → ordering` marca o pedido pago, que emite `order.paid → delivery` (cria a entrega) e `→ messaging` (avisa no WhatsApp).
+Contextos conversam por serviços de aplicação exportados e por **eventos de integração** (`src/shared/application/integration-events.ts`) — ex.: `payment.succeeded → ordering` marca o pedido pago, que emite `order.paid → delivery` (cria a entrega) e `→ messaging` (avisa o cliente no WhatsApp e a administração por e-mail).
 
 ```bash
 cd backend && npm test        # testes de domínio (pedido, entrega, preços)

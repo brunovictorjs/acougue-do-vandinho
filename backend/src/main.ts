@@ -25,7 +25,7 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   logger.log(`API em http://localhost:${config.port}/api`);
   logger.log(
-    `Pagamentos: ${config.payments.provider} · WhatsApp: ${config.whatsapp.provider} · IA: ${config.assistant.apiKey ? config.assistant.model : 'regras (sem ANTHROPIC_API_KEY)'} · Login dev: ${config.devLoginEnabled ? 'ligado' : 'desligado'}`,
+    `Pagamentos: ${config.payments.provider} · WhatsApp: ${config.whatsapp.provider} · E-mail: ${config.email.provider} · IA: ${config.assistant.apiKey ? config.assistant.model : 'regras (sem ANTHROPIC_API_KEY)'} · Login dev: ${config.devLoginEnabled ? 'ligado' : 'desligado'}`,
   );
 }
 await bootstrap();

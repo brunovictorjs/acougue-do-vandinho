@@ -405,6 +405,7 @@ model StoreSettings {
   assistantEnabled     Boolean  @default(true)
   assistantPrompt      String   @default("")
   notifications        String    @default("{}") // JSON { [template]: boolean }
+  adminEmailNotifications String @default("{}") // JSON { [template]: boolean } — avisos por e-mail para a administração
   privacyPolicy        String    @default("") // Markdown publicado em /privacidade
   privacyUpdatedAt     DateTime?
   terms                String    @default("") // Markdown publicado em /termos

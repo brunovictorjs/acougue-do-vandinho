@@ -4,6 +4,7 @@ import { BusinessRuleError } from '../../../shared/domain/errors.js';
 import { parseJson } from '../../../shared/domain/text.js';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service.js';
 import { FileStorage } from '../../../shared/infrastructure/storage/file-storage.js';
+import { ADMIN_EMAIL_NOTIFICATIONS, AdminEmailNotification, resolveAdminEmailNotifications } from '../domain/admin-email-notifications.js';
 import { privacyPolicyTemplate, termsTemplate } from '../domain/legal-templates.js';
 import { NOTIFICATION_TEMPLATES, NotificationTemplate, resolveNotifications } from '../domain/notification-templates.js';
 
@@ -27,6 +28,8 @@ export interface StoreSettingsView {
   assistantPrompt: string;
   notifications: Record<NotificationTemplate, boolean>;
   notificationLabels: typeof NOTIFICATION_TEMPLATES;
+  adminEmailNotifications: Record<AdminEmailNotification, boolean>;
+  adminEmailNotificationLabels: typeof ADMIN_EMAIL_NOTIFICATIONS;
   privacyPolicy: string;
   privacyUpdatedAt: Date | null;
   terms: string;
@@ -38,7 +41,7 @@ export interface LegalDocumentView {
   updatedAt: Date | null;
 }
 
-export type StoreSettingsPatch = Partial<Omit<StoreSettingsView, 'notificationLabels' | 'privacyUpdatedAt' | 'termsUpdatedAt'>>;
+export type StoreSettingsPatch = Partial<Omit<StoreSettingsView, 'notificationLabels' | 'adminEmailNotificationLabels' | 'privacyUpdatedAt' | 'termsUpdatedAt'>>;
 
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -67,6 +70,8 @@ export class StoreSettingsService {
       assistantPrompt: s.assistantPrompt,
       notifications: resolveNotifications(parseJson<Record<string, boolean>>(s.notifications, {})),
       notificationLabels: NOTIFICATION_TEMPLATES,
+      adminEmailNotifications: resolveAdminEmailNotifications(parseJson<Record<string, boolean>>(s.adminEmailNotifications, {})),
+      adminEmailNotificationLabels: ADMIN_EMAIL_NOTIFICATIONS,
       privacyPolicy: s.privacyPolicy,
       privacyUpdatedAt: s.privacyUpdatedAt,
       terms: s.terms,
@@ -129,7 +134,7 @@ export class StoreSettingsService {
   }
 
   async update(patch: StoreSettingsPatch) {
-    const { hours, notifications, privacyPolicy, terms, ...rest } = patch;
+    const { hours, notifications, adminEmailNotifications, privacyPolicy, terms, ...rest } = patch;
     const current = await this.get();
     const now = new Date();
     await this.prisma.storeSettings.upsert({
@@ -139,6 +144,7 @@ export class StoreSettingsService {
         ...rest,
         ...(hours ? { hours: JSON.stringify(hours) } : {}),
         ...(notifications ? { notifications: JSON.stringify(notifications) } : {}),
+        ...(adminEmailNotifications ? { adminEmailNotifications: JSON.stringify(adminEmailNotifications) } : {}),
         // O carimbo de ultima atualizacao so muda quando o texto publicado muda.
         ...(privacyPolicy !== undefined && privacyPolicy !== current.privacyPolicy ? { privacyPolicy, privacyUpdatedAt: now } : {}),
         ...(terms !== undefined && terms !== current.terms ? { terms, termsUpdatedAt: now } : {}),
@@ -149,5 +155,9 @@ export class StoreSettingsService {
 
   async isNotificationEnabled(template: NotificationTemplate) {
     return (await this.get()).notifications[template];
+  }
+
+  async isAdminEmailEnabled(template: AdminEmailNotification) {
+    return (await this.get()).adminEmailNotifications[template];
   }
 }

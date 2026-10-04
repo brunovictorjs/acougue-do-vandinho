@@ -37,6 +37,7 @@ export class UpdateSettingsDto {
   @IsOptional() @IsBoolean() assistantEnabled?: boolean;
   @IsOptional() @IsString() @MaxLength(8000) assistantPrompt?: string;
   @IsOptional() @IsObject() notifications?: Record<string, boolean>;
+  @IsOptional() @IsObject() adminEmailNotifications?: Record<string, boolean>;
   @IsOptional() @IsString() @MaxLength(60000) privacyPolicy?: string;
   @IsOptional() @IsString() @MaxLength(60000) terms?: string;
 }

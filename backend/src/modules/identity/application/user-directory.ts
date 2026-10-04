@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AppConfig } from '../../../config/app-config.js';
 import { pageArgs, paged } from '../../../shared/application/pagination.js';
 import { BusinessRuleError, NotFoundError } from '../../../shared/domain/errors.js';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service.js';
@@ -19,7 +20,10 @@ export interface UserContact {
  */
 @Injectable()
 export class UserDirectory {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: AppConfig,
+  ) {}
 
   private toContact(u: { id: string; firstName: string; lastName: string; email: string; phone: string | null; role: RoleName }): UserContact {
     return { id: u.id, firstName: u.firstName, fullName: `${u.firstName} ${u.lastName}`.trim(), email: u.email, phone: u.phone, role: u.role };
@@ -28,6 +32,16 @@ export class UserDirectory {
   async contact(userId: string): Promise<UserContact | null> {
     const u = await this.prisma.user.findUnique({ where: { id: userId } });
     return u ? this.toContact(u) : null;
+  }
+
+  /**
+   * Para onde vão os avisos da administração: o e-mail de cada usuário ADMIN
+   * mais os de ADMIN_EMAILS (o dono recebe antes do primeiro login).
+   */
+  async adminEmails(): Promise<string[]> {
+    const rows = await this.prisma.user.findMany({ where: { role: 'ADMIN' }, select: { email: true } });
+    const emails = [...rows.map((r) => r.email), ...this.config.adminEmails];
+    return [...new Set(emails.map((e) => e.trim()).filter(Boolean))];
   }
 
   /** Only verified numbers identify a customer on WhatsApp. */

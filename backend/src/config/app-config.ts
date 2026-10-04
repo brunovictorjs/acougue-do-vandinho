@@ -8,6 +8,7 @@ const bool = (v: string | undefined, fallback: boolean) =>
  * fallback so the whole app runs on a laptop without paid services:
  * - payments: `fake` (simulated Pix/card) or `stripe`
  * - whatsapp: `log` (prints + stores messages) or `zapi`
+ * - email: `log` (prints the message) or `resend`
  * - assistant: Claude when ANTHROPIC_API_KEY is set, rule-based otherwise
  */
 @Injectable()
@@ -38,6 +39,18 @@ export class AppConfig {
     provider: (process.env.PAYMENT_PROVIDER ?? 'fake') as 'fake' | 'stripe',
     stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? '',
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',
+  };
+
+  /**
+   * Avisos por e-mail para a administração. `log` (padrão) imprime o e-mail no
+   * log do servidor — a loja roda sem serviço pago; `resend` entrega de verdade
+   * (https://resend.com) com RESEND_API_KEY e um EMAIL_FROM de domínio verificado.
+   */
+  readonly email = {
+    provider: (process.env.EMAIL_PROVIDER ?? 'log') as 'log' | 'resend',
+    resendApiKey: process.env.RESEND_API_KEY ?? '',
+    resendBaseUrl: process.env.RESEND_BASE_URL ?? 'https://api.resend.com',
+    from: process.env.EMAIL_FROM ?? 'Açougue do Vandinho <avisos@acouguedovandinho.local>',
   };
 
   readonly whatsapp = {
