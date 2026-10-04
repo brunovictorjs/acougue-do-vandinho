@@ -23,7 +23,7 @@ export default async function HomePage(props: PageProps<"/">) {
           <BenefitsBar />
           <OffersSection offers={home.offers} />
           <NovidadesCard products={home.novidades} />
-          <Catalog categories={home.categories} initial={initial} offersFirst={params.ofertas === "1"} newestFirst={params.novidades === "1"} />
+          <Catalog categories={home.categories} initial={initial} offersOnly={params.ofertas === "1"} newestFirst={params.novidades === "1"} />
           <About store={store} />
         </Reveal>
       </main>

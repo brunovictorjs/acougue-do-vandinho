@@ -1,6 +1,7 @@
 "use client"
 
 import { SearchIcon, XIcon } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
 import * as React from "react"
 import useSWRInfinite from "swr/infinite"
 import { Button } from "@/components/ui/button"
@@ -23,10 +24,11 @@ const SORTS = [
   { value: "newest", label: "Novidades" },
 ]
 
-export function Catalog({ categories, initial, offersFirst = false, newestFirst = false }: { categories: Category[]; initial: ProductList; offersFirst?: boolean; newestFirst?: boolean }) {
+export function Catalog({ categories, initial, offersOnly = false, newestFirst = false }: { categories: Category[]; initial: ProductList; offersOnly?: boolean; newestFirst?: boolean }) {
+  const router = useRouter()
+  const pathname = usePathname()
   const [category, setCategory] = React.useState<string>("")
-  const [offersOnly, setOffersOnly] = React.useState(offersFirst)
-  const [sort, setSort] = React.useState<string>(newestFirst ? "newest" : "popular")
+  const [sortChoice, setSortChoice] = React.useState<string | null>(null)
   const [search, setSearch] = React.useState("")
   const [query, setQuery] = React.useState("")
 
@@ -34,6 +36,10 @@ export function Catalog({ categories, initial, offersFirst = false, newestFirst 
     const t = setTimeout(() => setQuery(search.trim()), 300)
     return () => clearTimeout(t)
   }, [search])
+
+  // derivado, e não estado inicial: na navegação soft (?ofertas=1, ?novidades=1) o server
+  // re-renderiza com props novas, mas um useState já inicializado as ignoraria
+  const sort = sortChoice ?? (newestFirst ? "newest" : "popular")
 
   const isDefault = !category && !offersOnly && sort === "popular" && !query
   const key = (page: number) => {
@@ -81,13 +87,13 @@ export function Catalog({ categories, initial, offersFirst = false, newestFirst 
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>{isLoading && !items.length ? "Carregando…" : `${total} produtos`}</span>
           {offersOnly && (
-            <Button variant="outline" size="sm" onClick={() => setOffersOnly(false)}>
+            <Button variant="outline" size="sm" onClick={() => router.replace(pathname, { scroll: false })}>
               Só ofertas
               <XIcon data-icon="inline-end" />
             </Button>
           )}
         </div>
-        <Select items={SORTS} value={sort} onValueChange={(v) => v && setSort(v)}>
+        <Select items={SORTS} value={sort} onValueChange={(v) => v && setSortChoice(v)}>
           <SelectTrigger aria-label="Ordenar por" className="h-10 min-w-44">
             <SelectValue />
           </SelectTrigger>
